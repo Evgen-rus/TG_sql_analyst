@@ -88,10 +88,8 @@ async def generate_answer(user_question: str, sql: str, result_rows: List[Dict[s
             code = str(row.get("project_code") or "").strip()
             if not code:
                 continue
-            if code.startswith('[') and code.endswith(']'):
-                code_clean = code[1:-1]
-            else:
-                code_clean = code
+            # Не снимаем скобки: используем код как есть, например "[LR165]"
+            code_clean = code
             if code in seen:
                 continue
             seen.add(code)
@@ -102,7 +100,8 @@ async def generate_answer(user_question: str, sql: str, result_rows: List[Dict[s
         if not code2name and sql:
             for m in re.findall(r"\[[A-Za-z]{2}\d+\]", sql):
                 code = m
-                code_clean = code[1:-1]
+                # Не снимаем скобки
+                code_clean = code
                 if code in seen:
                     continue
                 seen.add(code)

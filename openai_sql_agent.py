@@ -4,7 +4,7 @@ from openai import AsyncOpenAI
 
 from config import OPENAI_API_KEY, OPENAI_MODEL, OPENAI_PARAMS, logger
 from prompts import SQL_AGENT_SYSTEM_PROMPT
-from project_resolver import build_mapping_context, resolve_project_code_from_text
+from project_resolver import build_mapping_context
 
 
 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
@@ -44,7 +44,6 @@ async def generate_sql(question: str) -> Dict[str, str]:
     try:
         # Добавим контекст соответствий проектов.
         mapping_block = build_mapping_context()
-        resolved_code = resolve_project_code_from_text(question)
         enriched_input = (
             "USER_QUESTION:\n" + question.strip() + "\n\n"
             "PROJECTS_MAPPING (tag/name -> project_code):\n" + (mapping_block or "- (нет записей)") + "\n\n"
@@ -52,13 +51,11 @@ async def generate_sql(question: str) -> Dict[str, str]:
             "Важно: значения project_code в БД хранятся в квадратных скобках (пример: '[LR166]')\n"
             "Не используй JOIN, только таблицу leads.\n"
         )
-        if resolved_code:
-            enriched_input += f"Hint: resolved_project_code={resolved_code}; bracketed='[{resolved_code}]'\n"
 
         try:
             logger.info(
-                "SQL-agent prompt prepared: resolved_code=%s, mapping_len≈%s, user_q_len=%s",
-                resolved_code or "", len(mapping_block.splitlines()) if mapping_block else 0, len(question or "")
+                "SQL-agent prompt prepared: mapping_len≈%s, user_q_len=%s",
+                len(mapping_block.splitlines()) if mapping_block else 0, len(question or "")
             )
         except Exception:
             pass

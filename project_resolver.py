@@ -35,15 +35,19 @@ def _load_mapping_from_db() -> tuple[Dict[str, str], Dict[str, str]]:
         for tag, code in rows:
             if not tag or not code:
                 continue
-            tag_l = str(tag).strip().lower()
-            code_u = str(code).strip()
+            tag_clean = str(tag).strip()
+            tag_l = tag_clean.lower()
+            code_u = str(code).strip()  # из БД приходит со скобками, например "[LR165]"
+
+            # 1) mapping: ключ — tag/имя (lower), значение — code из БД (со скобками)
             if tag_l:
                 mapping[tag_l] = code_u
-            # также даём возможность распознать сам code как code
+            # также позволим распознавать сам code как ключ (lower) → вернуть canonical code со скобками
             mapping[code_u.lower()] = code_u
-            # выставим «лучший» tag для кода, если ещё не задан
-            if code_u and code_u not in code2tag and tag_l:
-                code2tag[code_u] = str(tag).strip()
+
+            # 2) code2tag: только ключ СО скобками (канонический формат)
+            if code_u and code_u not in code2tag:
+                code2tag[code_u] = tag_clean
         return mapping, code2tag
     finally:
         conn.close()
@@ -88,30 +92,15 @@ def get_code_to_tag_map() -> Dict[str, str]:
 def get_tag_by_code(code: str) -> str:
     if not code:
         return ""
-    code_clean = code.strip()
-    # снимем квадратные скобки, если пришли из leads
-    if code_clean.startswith('[') and code_clean.endswith(']'):
-        code_clean = code_clean[1:-1]
-    return get_code_to_tag_map().get(code_clean, "")
-
-
-def resolve_project_code_from_text(text: str) -> str:
-    if not text:
-        return ""
-    text_l = text.lower()
-    mapping = get_projects_mapping()
-    # простое эвристическое вхождение
-    for key, code in mapping.items():
-        if key and key in text_l:
-            try:
-                logger.info("Resolver hit: '%s' -> code=%s", key, code)
-            except Exception:
-                pass
-            return code
-    try:
-        logger.info("Resolver miss for text: len=%s", len(text_l or ""))
-    except Exception:
-        pass
+    key = code.strip()
+    # Ищем канонический ключ со скобками
+    value = get_code_to_tag_map().get(key, "")
+    if value:
+        return value
+    # Фолбэк: если пришёл код без скобок — обернём
+    if not (key.startswith('[') and key.endswith(']')):
+        wrapped = f"[{key}]"
+        return get_code_to_tag_map().get(wrapped, "")
     return ""
 
 
