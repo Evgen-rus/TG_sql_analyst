@@ -12,7 +12,7 @@ TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe"  # по требованию
 
 # Параметры для Responses API (маппинг max_tokens обработаем в агентах)
 OPENAI_PARAMS = {
-    "max_tokens": 5000,
+    "max_tokens": 50000,
 }
 
 # Telegram

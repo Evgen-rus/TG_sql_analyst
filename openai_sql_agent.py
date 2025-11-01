@@ -55,12 +55,23 @@ async def generate_sql(question: str) -> Dict[str, str]:
         if resolved_code:
             enriched_input += f"Hint: resolved_project_code={resolved_code}; bracketed='[{resolved_code}]'\n"
 
+        try:
+            logger.info(
+                "SQL-agent prompt prepared: resolved_code=%s, mapping_len≈%s, user_q_len=%s",
+                resolved_code or "", len(mapping_block.splitlines()) if mapping_block else 0, len(question or "")
+            )
+        except Exception:
+            pass
+
         kwargs = _build_kwargs(enriched_input)
         resp = await client.responses.create(**kwargs)
         text = getattr(resp, "output_text", "") or ""
+        if text:
+            logger.info("SQL-agent raw output_text: %s", text[:400].replace("\n", " "))
         data = _safe_json_loads(text)
         sql = str(data.get("sql") or "").strip()
         explanation = str(data.get("explanation") or "").strip()
+        logger.info("SQL-agent parsed: sql=%s | explanation=%s", sql, explanation)
         if not sql:
             explanation = explanation or ("Не удалось распознать SQL из ответа модели: " + text[:200])
         return {"sql": sql, "explanation": explanation}

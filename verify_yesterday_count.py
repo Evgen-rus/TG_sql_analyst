@@ -32,13 +32,15 @@ def main() -> None:
             f"SELECT COUNT(*) AS cnt FROM leads "
             f"WHERE project_code = ? AND date(created_at) = {date_expr}"
         )
-        res = execute_select(count_sql, params=(bracketed,))
+    logger.info("Verify: count_sql=%s", count_sql)
+    res = execute_select(count_sql, params=(bracketed,))
     else:
         like_pat = f"%{project_code}%"
         count_sql = (
             f"SELECT COUNT(*) AS cnt FROM leads "
             f"WHERE project_code LIKE ? AND date(created_at) = {date_expr}"
         )
+        logger.info("Verify: count_sql(like)=%s", count_sql)
         res = execute_select(count_sql, params=(like_pat,))
     cnt = int(res[0]["cnt"]) if res else 0
     print(f"project_code={project_code}; yesterday_count={cnt}; date_expr={date_expr}; mode={'LIKE' if args.contains else 'EQUALS_BRACKETED'}")
@@ -51,6 +53,7 @@ def main() -> None:
                 f"FROM leads WHERE project_code = ? AND date(created_at) = {date_expr} "
                 f"ORDER BY datetime(created_at) DESC LIMIT ?"
             )
+            logger.info("Verify: sample_sql=%s", sample_sql)
             rows = execute_select(sample_sql, params=(bracketed, args.samples))
         else:
             like_pat = f"%{project_code}%"
@@ -59,6 +62,7 @@ def main() -> None:
                 f"FROM leads WHERE project_code LIKE ? AND date(created_at) = {date_expr} "
                 f"ORDER BY datetime(created_at) DESC LIMIT ?"
             )
+            logger.info("Verify: sample_sql(like)=%s", sample_sql)
             rows = execute_select(sample_sql, params=(like_pat, args.samples))
         print("samples:")
         for r in rows:

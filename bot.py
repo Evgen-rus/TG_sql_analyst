@@ -147,8 +147,13 @@ def main() -> None:
 
                 try:
                     if text:
+                        try:
+                            logger.info("Incoming text len=%s from chat=%s", len(text or ""), chat_id)
+                        except Exception:
+                            pass
                         reply = handle_text_flow_sync(text)
                     elif voice:
+                        logger.info("Incoming voice from chat=%s", chat_id)
                         reply = handle_voice_flow_sync(voice)
                     else:
                         reply = "Поддерживаются текст и голосовые сообщения."
@@ -157,6 +162,10 @@ def main() -> None:
                     reply = "Произошла ошибка при обработке сообщения."
 
                 try:
+                    try:
+                        logger.info("Reply len=%s to chat=%s", len(reply or ""), chat_id)
+                    except Exception:
+                        pass
                     tg_send_message(chat_id, reply)
                 except Exception as exc:
                     logger.error("sendMessage error: %s", exc)

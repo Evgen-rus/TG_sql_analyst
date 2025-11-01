@@ -87,7 +87,7 @@ def validate_select_sql(sql: str) -> str:
 def execute_select(sql: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
     query = validate_select_sql(sql)
     uri = _to_uri_readonly(DB_PATH)
-    logger.info("Выполняю SQL (read-only): %s", query)
+    logger.info("SQL(read-only) → %s; params=%s", query, (params or ()))
 
     # URI режим
     conn = sqlite3.connect(uri, uri=True)
@@ -96,6 +96,7 @@ def execute_select(sql: str, params: Optional[tuple] = None) -> List[Dict[str, A
         cur = conn.cursor()
         cur.execute(query, params or tuple())
         rows = cur.fetchall()
+        logger.info("SQL rows fetched: %s", len(rows) if rows else 0)
         if not rows:
             return []
         columns = rows[0].keys()

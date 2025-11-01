@@ -57,6 +57,10 @@ def get_projects_mapping() -> Dict[str, str]:
     try:
         _cache_data, _cache_code2tag = _load_mapping_from_db()
         _cache_loaded_at = now
+        try:
+            logger.info("Projects mapping loaded: tags→codes=%s, codes→tags=%s", len(_cache_data or {}), len(_cache_code2tag or {}))
+        except Exception:
+            pass
         return _cache_data
     except Exception as exc:
         logger.error("Не удалось загрузить маппинг projects: %s", exc)
@@ -99,7 +103,15 @@ def resolve_project_code_from_text(text: str) -> str:
     # простое эвристическое вхождение
     for key, code in mapping.items():
         if key and key in text_l:
+            try:
+                logger.info("Resolver hit: '%s' -> code=%s", key, code)
+            except Exception:
+                pass
             return code
+    try:
+        logger.info("Resolver miss for text: len=%s", len(text_l or ""))
+    except Exception:
+        pass
     return ""
 
 
