@@ -102,11 +102,48 @@ def inspect(database_path: str) -> Dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Инспекция схемы SQLite в JSON")
     parser.add_argument("--db", dest="db", default=DB_PATH, help="Путь к БД (по умолчанию из config.DB_PATH)")
+    parser.add_argument("--samples", type=int, default=0, help="Показать до N последних записей по каждой таблице (0 = не показывать)")
     args = parser.parse_args()
 
     try:
         info = inspect(args.db)
         print(json.dumps(info, ensure_ascii=False, indent=2))
+        if args.samples and args.samples > 0:
+            # Дополнительный раздел с примерами последних записей
+            print("\n===== Samples per table (up to {} rows) =====".format(args.samples))
+            uri = _to_uri_readonly(args.db)
+            conn = sqlite3.connect(uri, uri=True)
+            try:
+                for obj in info.get("objects", []):
+                    if obj.get("type") != "table":
+                        continue
+                    table = obj.get("name")
+                    cols = [c.get("name") for c in obj.get("columns", [])]
+                    # Определим поле для сортировки по убыванию
+                    order_col = None
+                    for candidate in ("created_at", "updated_at", "id"):
+                        if candidate in cols:
+                            order_col = candidate
+                            break
+                    cur = conn.cursor()
+                    if order_col:
+                        sql = f"SELECT * FROM {table} ORDER BY {order_col} DESC LIMIT ?"
+                        cur.execute(sql, (args.samples,))
+                    else:
+                        sql = f"SELECT * FROM {table} LIMIT ?"
+                        cur.execute(sql, (args.samples,))
+                    rows = cur.fetchall()
+                    # Печать
+                    print(f"\n[table] {table}")
+                    if not rows:
+                        print("  (no rows)")
+                        continue
+                    col_names = [d[0] for d in cur.description]
+                    for r in rows:
+                        as_dict = {col_names[i]: r[i] for i in range(len(col_names))}
+                        print("  ", as_dict)
+            finally:
+                conn.close()
     except Exception as exc:
         logger.error("Ошибка инспекции БД: %s", exc)
         raise

@@ -48,11 +48,12 @@ async def generate_sql(question: str) -> Dict[str, str]:
         enriched_input = (
             "USER_QUESTION:\n" + question.strip() + "\n\n"
             "PROJECTS_MAPPING (tag/name -> project_code):\n" + (mapping_block or "- (нет записей)") + "\n\n"
-            "Правило: если в вопросе есть название/тег проекта, используй строго leads.project_code='<code>'\n"
+            "Правило: если в вопросе есть название/тег проекта, используй строго leads.project_code='[<code>]'\n"
+            "Важно: значения project_code в БД хранятся в квадратных скобках (пример: '[LR166]')\n"
             "Не используй JOIN, только таблицу leads.\n"
         )
         if resolved_code:
-            enriched_input += f"Hint: resolved_project_code={resolved_code}\n"
+            enriched_input += f"Hint: resolved_project_code={resolved_code}; bracketed='[{resolved_code}]'\n"
 
         kwargs = _build_kwargs(enriched_input)
         resp = await client.responses.create(**kwargs)

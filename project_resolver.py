@@ -8,6 +8,7 @@ from config import DB_PATH, logger
 
 _CACHE_TTL_SEC = 300
 _cache_data: Dict[str, str] = {}
+_cache_code2tag: Dict[str, str] = {}
 _cache_loaded_at: float = 0.0
 
 
@@ -16,7 +17,7 @@ def _to_uri_readonly(db_path: str) -> str:
     return f"file:{abs_path}?mode=ro"
 
 
-def _load_mapping_from_db() -> Dict[str, str]:
+def _load_mapping_from_db() -> tuple[Dict[str, str], Dict[str, str]]:
     uri = _to_uri_readonly(DB_PATH)
     conn = sqlite3.connect(uri, uri=True)
     try:
@@ -30,6 +31,7 @@ def _load_mapping_from_db() -> Dict[str, str]:
         )
         rows = cur.fetchall()
         mapping: Dict[str, str] = {}
+        code2tag: Dict[str, str] = {}
         for tag, code in rows:
             if not tag or not code:
                 continue
@@ -39,7 +41,10 @@ def _load_mapping_from_db() -> Dict[str, str]:
                 mapping[tag_l] = code_u
             # также даём возможность распознать сам code как code
             mapping[code_u.lower()] = code_u
-        return mapping
+            # выставим «лучший» tag для кода, если ещё не задан
+            if code_u and code_u not in code2tag and tag_l:
+                code2tag[code_u] = str(tag).strip()
+        return mapping, code2tag
     finally:
         conn.close()
 
@@ -50,12 +55,40 @@ def get_projects_mapping() -> Dict[str, str]:
     if _cache_data and (now - _cache_loaded_at) < _CACHE_TTL_SEC:
         return _cache_data
     try:
-        _cache_data = _load_mapping_from_db()
+        _cache_data, _cache_code2tag = _load_mapping_from_db()
         _cache_loaded_at = now
         return _cache_data
     except Exception as exc:
         logger.error("Не удалось загрузить маппинг projects: %s", exc)
         return _cache_data or {}
+
+
+def get_code_to_tag_map() -> Dict[str, str]:
+    global _cache_code2tag, _cache_loaded_at
+    now = time.time()
+    if _cache_code2tag and (now - _cache_loaded_at) < _CACHE_TTL_SEC:
+        return _cache_code2tag
+    # попытка перезагрузить из БД, если основной маппинг протух
+    try:
+        mapping, code2tag = _load_mapping_from_db()
+        # обновим оба кэша, чтобы синхронизировать времена
+        globals()['_cache_data'] = mapping
+        _cache_code2tag = code2tag
+        globals()['_cache_loaded_at'] = now
+        return _cache_code2tag
+    except Exception as exc:
+        logger.error("Не удалось загрузить code->tag mapping: %s", exc)
+        return _cache_code2tag or {}
+
+
+def get_tag_by_code(code: str) -> str:
+    if not code:
+        return ""
+    code_clean = code.strip()
+    # снимем квадратные скобки, если пришли из leads
+    if code_clean.startswith('[') and code_clean.endswith(']'):
+        code_clean = code_clean[1:-1]
+    return get_code_to_tag_map().get(code_clean, "")
 
 
 def resolve_project_code_from_text(text: str) -> str:
